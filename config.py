@@ -9,15 +9,6 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-# Default provider to use
-DEFAULT_PROVIDER = os.getenv("LLM_PROVIDER", "groq").lower()
-
-# Model-specific overrides
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama3-8b-8192")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022")
-OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-r1-0528:free")
-
 # ============================================================================
 # PRODUCTION SYSTEM PROMPT
 # ============================================================================
@@ -123,16 +114,31 @@ Output:
     "ppi": 56
   }
 }
+
+## CONVERSATIONAL FALLBACK
+If the user input is NOT a textile design request (e.g., greeting, off-topic question, or general inquiry), respond with a plain JSON object:
+{
+  "message": "<your friendly response here>",
+  "parameters": null
+}
+This ensures the frontend always receives valid JSON, even for non-design conversations.
 """
 
 
 def get_provider_name() -> str:
     """Get the currently configured provider name."""
-    return DEFAULT_PROVIDER
+    return os.getenv("LLM_PROVIDER", "groq").lower()
 
 
 def set_provider_name(name: str) -> None:
     """Set the provider to use (updates environment variable)."""
-    global DEFAULT_PROVIDER
-    DEFAULT_PROVIDER = name.lower().strip()
-    os.environ["LLM_PROVIDER"] = DEFAULT_PROVIDER
+    valid_providers = ["groq", "openai", "anthropic", "openrouter", "mock"]
+    normalized_name = name.lower().strip()
+    
+    if normalized_name not in valid_providers:
+        raise ValueError(
+            f"Invalid provider '{normalized_name}'. "
+            f"Must be one of: {', '.join(valid_providers)}"
+        )
+    
+    os.environ["LLM_PROVIDER"] = normalized_name

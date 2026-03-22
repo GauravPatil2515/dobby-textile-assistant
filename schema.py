@@ -3,13 +3,8 @@ Dobby Parameters Schema
 Complete schema matching Design Dobby Ver 22.0.0.357 "Automise Warp/Weft" dialog.
 """
 
-from typing import List, Optional, Literal, Dict
-
-try:
-    from typing_extensions import TypedDict
-except ImportError:
-    # Python 3.8+ includes TypedDict in typing; fallback for newer Python versions.
-    from typing import TypedDict
+import copy
+from typing import List, Optional, Literal, Dict, TypedDict
 
 
 # ============================================================================
@@ -121,6 +116,7 @@ class MaterialSimulation(TypedDict):
     """
     Visual metadata for the frontend previewer.
     This does NOT affect the Dobby Engine - it controls how the preview is rendered.
+    TODO: wire MaterialSimulation to the frontend previewer
     """
     fabric_type: Literal["Cotton", "Silk", "Wool", "Linen", "Polyester"]
     gloss: float  # 0.0 (matte) to 1.0 (glossy)
@@ -362,3 +358,57 @@ TEMPLATES = {
         "display_swatch": {"x": 4, "y": 4}
     }
 }
+
+
+# ============================================================================
+# VALIDATION & HELPER FUNCTIONS
+# ============================================================================
+
+def validate_llm_response(data: dict) -> bool:
+    """
+    Validate that the LLM response conforms to the config.py schema.
+    
+    Checks that the required fields from the SYSTEM_PROMPT are present:
+    design, stripe, colors, visual, market, technical.
+    
+    Args:
+        data: Dictionary to validate
+    
+    Returns:
+        True if all required fields are present and non-null
+    
+    Raises:
+        ValueError: If validation fails with a descriptive message
+    """
+    required_fields = ["design", "stripe", "colors", "visual", "market", "technical"]
+    
+    for field in required_fields:
+        if field not in data or data[field] is None:
+            raise ValueError(
+                f"LLM response missing required field '{field}'. "
+                f"Valid schema must contain all fields: {', '.join(required_fields)}"
+            )
+    
+    return True
+
+
+def get_template(name: str) -> dict:
+    """
+    Get a deep copy of a template by name.
+    
+    Args:
+        name: Template name (e.g., "classic_check")
+    
+    Returns:
+        Deep copy of the template dictionary
+    
+    Raises:
+        KeyError: If template name is not found
+    """
+    if name not in TEMPLATES:
+        available = ", ".join(TEMPLATES.keys())
+        raise KeyError(
+            f"Template '{name}' not found. Available templates: {available}"
+        )
+    
+    return copy.deepcopy(TEMPLATES[name])
