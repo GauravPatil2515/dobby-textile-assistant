@@ -2,6 +2,8 @@
 
 A provider-agnostic LLM chatbot for yarn-dyed textile design. Easily compare responses across multiple AI providers (Groq, OpenAI, Anthropic, OpenRouter) with a consistent system prompt.
 
+Updated on 23 March 2026.
+
 ## Features
 
 - **Provider-Agnostic**: Switch between Groq, OpenAI, Anthropic, and OpenRouter with a single environment variable
