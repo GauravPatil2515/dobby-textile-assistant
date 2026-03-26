@@ -43,7 +43,43 @@ function renderChat() {
   chatHistory.forEach(item => {
     const messageElem = document.createElement('div');
     messageElem.className = item.role === 'user' ? 'chat-message user' : 'chat-message bot';
-    messageElem.textContent = item.text;
+    
+    let text = item.text || "";
+    // Regex to match [OPTIONS:A|B|C]
+    const optionsMatch = text.match(/\[OPTIONS:(.*?)\]/);
+    
+    if (optionsMatch) {
+      // Remove the tag from text so it doesn't display
+      const cleanText = text.replace(optionsMatch[0], '').trim();
+      messageElem.textContent = cleanText;
+      
+      const optionsContainer = document.createElement('div');
+      optionsContainer.className = 'chat-options';
+      optionsContainer.style.marginTop = '8px';
+      
+      const options = optionsMatch[1].split('|');
+      options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'chat-option-btn';
+        btn.textContent = opt.trim();
+        // Simple inline styling just in case, styling can be moved to CSS later
+        btn.style.marginRight = '5px';
+        btn.style.marginBottom = '5px';
+        btn.style.padding = '5px 10px';
+        btn.style.cursor = 'pointer';
+        
+        btn.onclick = () => {
+          const chatInput = document.getElementById("chatInput");
+          if (chatInput) chatInput.value = opt.trim();
+          sendChat();
+        };
+        optionsContainer.appendChild(btn);
+      });
+      messageElem.appendChild(optionsContainer);
+    } else {
+      messageElem.textContent = text;
+    }
+    
     chatMessages.appendChild(messageElem);
   });
 
@@ -87,7 +123,7 @@ async function sendChat() {
 
   // add system prompt to conversation if first message
   if (conversationMessages.length === 0) {
-    conversationMessages.push({ role: 'system', content: `You are a professional textile and yarn pattern identification expert and technical advisor. Answer with practical recommendations, ask clarifying questions, and provide the best solution in the context of yarn and fabric design.` });
+    conversationMessages.push({ role: 'system', content: `You are a professional textile and yarn pattern identification expert.` });
   }
 
   // add user message to conversation history for multi-turn context
@@ -127,13 +163,8 @@ async function sendChat() {
       if (!isJson) {
         botText = raw;
       } else if (data.structured) {
-        botText = "I have updated the structured design details. What else would you like to refine (e.g., yarn count, color mix, or weave type)?";
+        botText = "I have updated the structured design details. What else would you like to refine (e.g., color, size, or style)?";
       }
-    }
-
-    // Encourage follow-up questions
-    if (conversationMessages.length > 0) {
-      botText += "\n\n(Feel free to ask for recommendations, production constraints, or style variations.)";
     }
 
     addChatMessage('assistant', botText);

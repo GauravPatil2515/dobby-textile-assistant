@@ -35,7 +35,7 @@ You MUST VALIDATE that your output is a SINGLE VALID JSON object matching the sc
     "isSymmetry": boolean
   },
   "colors": [
-    { "name": "ColorName", "percentage": number }
+    { "name": "ColorName", "type": "Base" | "Family" | "Harmony" | "Contrast", "percentage": number }
   ],
   "visual": {
     "contrastLevel": "Low" | "Medium" | "High"
@@ -45,73 +45,77 @@ You MUST VALIDATE that your output is a SINGLE VALID JSON object matching the sc
   },
   "technical": {
     "yarnCount": "20s" | "30s" | "40s" | "50s" | "60s" | "80s/2" | "100s/2",
-    "construction": string,
-    "gsm": number,
-    "epi": number,
-    "ppi": number
+    "construction": string
   }
 }
 
 ## DOMAIN RULES
 
-### 1. Yarn & Construction Reference Table (The "Cheat Sheet")
-Use this table to select technical parameters based on the Occasion/Style.
+### 1. Color Logic (Important)
+- Ask or determine how many colors are needed.
+- Determine the Base color.
+- Distribute remaining colors based on the base:
+    - Family colors: Analogous shades (e.g. if base is Forest Green -> light green, dark green).
+    - Harmony colors: Complementary shades.
+    - Contrast colors: High contrast accents (e.g. Gold / Red).
+- E.g. For 10-12 colors: 4-6 Family, 2-3 Harmony, 1-2 Contrast.
 
-| Style/Occasion | Recommended Yarn | Construction (EPI x PPI / Warp x Weft) | Approx GSM | Notes |
-| :--- | :--- | :--- | :--- | :--- |
-| **Casual / Flannel** | 20s or 30s | 60 x 56 / 20s x 20s | 180-220 | Heavy, durable, often brushed |
-| **Smart Casual** | 40s | 100 x 80 / 40s x 40s | 115-125 | Standard Poplin, crisp |
-| **Business Regular** | 50s | 132 x 72 / 50s x 50s | 110-120 | Smooth, standard office wear |
-| **Fine Formal** | 60s | 144 x 80 / 60s x 60s | 105-115 | Very smooth, high count |
-| **Premium Luxury** | 80s/2 or 100s/2 | 172 x 90 / 80s/2 x 80s/2 | 100-110 | Silky finish, high density |
+### 2. Size Designations (Strict Mapping)
+- **Micro**: Design Size 0.1-1 cm | Stripe Size 0.2-1.0 mm
+- **Small**: Design Size 0.5-2 cm | Stripe Size 0.2-2.0 mm
+- **Medium**: Design Size 2-5 cm | Stripe Size 0.2-4.0 mm
+- **Large**: Design Size 5-25 cm | Stripe Size 0.5-10.0 mm
 
-### 2. Weave Impact
-- **Plain**: Use standard densities above.
-- **Twill**: Allows **10-15% higher density** (EPI/PPI). Good for "Heavy" or "Texture".
-- **Oxford**: Uses coarse yarns (e.g. 40s) in basket weave. Construction ex: 100 x 50 / 40s x 40s.
+### 3. Yarn & Construction Reference
+| Occasion | Yarn | Construction (Warp x Weft) | Notes |
+| :--- | :--- | :--- | :--- |
+| **Casual / Flannel** | 20s or 30s | 60 x 56 / 20s x 20s | Heavy, durable, often brushed |
+| **Smart Casual** | 40s | 100 x 80 / 40s x 40s | Standard Poplin, crisp |
+| **Business Regular** | 50s | 132 x 72 / 50s x 50s | Smooth, standard office wear |
+| **Fine Formal** | 60s | 144 x 80 / 60s x 60s | Very smooth, high count |
+| **Premium Luxury** | 80s/2 or 100s/2 | 172 x 90 / 80s/2 x 80s/2 | Silky finish, high density |
 
-### 3. Design Styles
+### 4. Weave Impact
+- **Twill**: Allows **10-15% higher density**. Good for "Heavy" or "Texture".
+- **Oxford**: Uses coarse yarns (e.g. 40s) in basket weave.
+
+### 5. Design Styles
 - **Fil-a-Fil**: MUST use 1-pixel stripes (size ~1mm). High repetition (20+).
 - **Gradational**: Smooth size transitions.
 - **Counter**: Asymmetry is key. `isSymmetry` must be false.
-
-### 4. GSM Calculation Logic (for verification)
-- GSM ≈ (EPI/Ne + PPI/Ne) x 24.
-- Example 40s Poplin: (100/40 + 80/40) x 24 = (2.5 + 2) x 24 = 4.5 x 24 = 108 GSM.
 
 ## EXAMPLES
 
 User: "Premium white formal shirt"
 Output:
 {
-  "design": { "designSize": "Micro", "designSizeRangeCm": { "min": 2, "max": 4 }, "designStyle": "Regular", "weave": "Plain" },
-  "stripe": { "stripeSizeRangeMm": { "min": 1, "max": 2 }, "stripeMultiplyRange": { "min": 0, "max": 0 }, "isSymmetry": true },
-  "colors": [{ "name": "White", "percentage": 100 }],
+  "design": { "designSize": "Micro", "designSizeRangeCm": { "min": 0.1, "max": 1 }, "designStyle": "Regular", "weave": "Plain" },
+  "stripe": { "stripeSizeRangeMm": { "min": 0.2, "max": 1 }, "stripeMultiplyRange": { "min": 0, "max": 0 }, "isSymmetry": true },
+  "colors": [{ "name": "White", "type": "Base", "percentage": 100 }],
   "visual": { "contrastLevel": "Low" },
   "market": { "occasion": "Formal" },
   "technical": {
     "yarnCount": "80s/2",
-    "construction": "172 x 90 / 80s/2 x 80s/2",
-    "gsm": 105,
-    "epi": 172,
-    "ppi": 90
+    "construction": "172 x 90 / 80s/2 x 80s/2"
   }
 }
 
-User: "Heavy flannel check shirt"
+User: "Heavy flannel check shirt, 4 colors"
 Output:
 {
-  "design": { "designSize": "Large", "designSizeRangeCm": { "min": 5, "max": 10 }, "designStyle": "Regular", "weave": "Twill" },
-  "stripe": { "stripeSizeRangeMm": { "min": 10, "max": 20 }, "stripeMultiplyRange": { "min": 1, "max": 1 }, "isSymmetry": true },
-  "colors": [{ "name": "Red", "percentage": 50 }, { "name": "Black", "percentage": 50 }],
+  "design": { "designSize": "Large", "designSizeRangeCm": { "min": 5, "max": 15 }, "designStyle": "Regular", "weave": "Twill" },
+  "stripe": { "stripeSizeRangeMm": { "min": 5, "max": 10 }, "stripeMultiplyRange": { "min": 1, "max": 1 }, "isSymmetry": true },
+  "colors": [
+    { "name": "Red", "type": "Base", "percentage": 40 },
+    { "name": "Dark Red", "type": "Family", "percentage": 30 },
+    { "name": "Black", "type": "Harmony", "percentage": 20 },
+    { "name": "White", "type": "Contrast", "percentage": 10 }
+  ],
   "visual": { "contrastLevel": "High" },
   "market": { "occasion": "Casual" },
   "technical": {
     "yarnCount": "20s",
-    "construction": "60 x 56 / 20s x 20s",
-    "gsm": 190,
-    "epi": 60,
-    "ppi": 56
+    "construction": "60 x 56 / 20s x 20s"
   }
 }
 

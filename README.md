@@ -1,218 +1,148 @@
 # Dobby Textile Design Assistant
 
-A provider-agnostic LLM chatbot for yarn-dyed textile design. Easily compare responses across multiple AI providers (Groq, OpenAI, Anthropic, OpenRouter) with a consistent system prompt.
+Provider-agnostic textile design assistant for yarn-dyed shirting with a Flask web UI, multi-provider LLM backend, and optional CLI mode.
 
-Updated on 23 March 2026.
+Updated on 26 March 2026.
 
-## Features
+## What it does
 
-- **Provider-Agnostic**: Switch between Groq, OpenAI, Anthropic, and OpenRouter with a single environment variable
-- **Secure Configuration**: API keys loaded from environment variables via `.env` file (never hardcoded)
-- **Consistent Prompts**: Same system prompt across all providers for fair comparison
-- **Web & CLI Interfaces**: Use the Flask web app or command-line interface
-- **Easy Model Switching**: Test different models to compare response quality and speed
-- **OpenRouter Support**: Access Groq (via groq-4.1-fast) and other models through OpenRouter's unified API
+- Runs a conversational textile assistant in the web app (`web.py`)
+- Collects user requirements first, then returns structured design JSON when ready
+- Supports multiple providers: Groq, OpenAI, Anthropic, OpenRouter, and Mock fallback
+- Extracts `<DESIGN_OUTPUT>...</DESIGN_OUTPUT>` JSON from model responses for UI auto-fill
+- Exposes health/provider endpoints for quick diagnostics
 
-## Setup
+## Project structure
+
+- `web.py` - Flask app, conversational system prompt, `/chat` API
+- `cli.py` - terminal chatbot mode
+- `llm_provider.py` - provider interface, concrete provider clients, factory
+- `config.py` - environment/provider configuration and base system prompt
+- `api/index.py` - Vercel entrypoint importing `app` from `web.py`
+- `static/`, `templates/` - frontend assets
+
+## Requirements
+
+- Python 3.10+ recommended
+- API key for at least one provider (unless using `mock`)
+
+Install dependencies:
 
 ```bash
-# Install core dependencies
 python -m pip install -r requirements.txt
-
-# Optional: Install additional provider SDKs for model comparison
-pip install openai anthropic
 ```
 
 ## Configuration
 
-Set environment variables in a `.env` file (recommended) or export them. API keys are loaded securely via `python-dotenv` and never hardcoded.
-
-### Create a `.env` file in the project root:
+Create a `.env` file in the project root:
 
 ```bash
-# Choose your default provider (default: groq)
-LLM_PROVIDER=openrouter
+# Active provider: groq | openai | anthropic | openrouter | mock
+LLM_PROVIDER=groq
 
-# Set API keys for providers you'll use
+# Provider API keys
 GROQ_API_KEY=your_groq_key
 OPENAI_API_KEY=your_openai_key
 ANTHROPIC_API_KEY=your_anthropic_key
 OPENROUTER_API_KEY=your_openrouter_key
 
-# Optional: Override model names
-GROQ_MODEL=llama3-8b-8192
+# Optional model overrides
+GROQ_MODEL=llama-3.3-70b-versatile
 OPENAI_MODEL=gpt-4o-mini
 ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
-OPENROUTER_MODEL=groq/groq-4.1-fast
+OPENROUTER_MODEL=deepseek/deepseek-r1:free,deepseek/deepseek-r1-distill-llama-70b:free
+
+# Optional Flask runtime config
+FLASK_HOST=127.0.0.1
+FLASK_PORT=5000
+FLASK_DEBUG=1
 ```
 
-**⚠️ Security**: Do NOT commit `.env` to source control. See `.gitignore` to ensure `.env` files are excluded.
+Security note: never commit `.env` files or API keys.
 
-## Running
+## Run locally
 
-### Web Interface (Recommended)
+### Web app
 
 ```bash
-# Start Flask server on http://127.0.0.1:5000
 python web.py
 ```
 
-Visit http://127.0.0.1:5000 in your browser. The web interface displays which provider is currently active.
+Open `http://127.0.0.1:5000`.
 
-### CLI Interface
+### CLI mode
 
 ```bash
-# Run the command-line chatbot
-python app.py
+python cli.py
 ```
 
-Type 'exit' to quit.
+Type `exit` to quit.
 
-## Switching Providers
+## API endpoints
 
-### Via Environment Variable
+- `GET /` - web UI
+- `GET /health` - returns app status and active provider
+- `GET /api/providers` - available + active providers
+- `POST /chat` - chat endpoint
+
+### `POST /chat` request
+
+```json
+{
+    "messages": [
+        { "role": "user", "content": "I need a premium formal stripe shirt in blue tones." }
+    ]
+}
+```
+
+### `POST /chat` response
+
+```json
+{
+    "reply": "Short conversational assistant text",
+    "structured": { "...": "parsed JSON when present" },
+    "has_design": true
+}
+```
+
+Notes:
+
+- Web route always injects/replaces the system prompt with the conversational prompt in `web.py`.
+- Structured JSON is parsed only when the model includes `<DESIGN_OUTPUT>...</DESIGN_OUTPUT>`.
+- The JSON block is removed from `reply` before frontend display.
+
+## Provider support
+
+`llm_provider.py` includes:
+
+- `GroqProvider`
+- `OpenAIProvider`
+- `AnthropicProvider`
+- `OpenRouterProvider` (supports fallback chain from comma-separated models)
+- `MockProvider`
+- `LLMProviderFactory`
+
+Switch provider via env var:
 
 ```bash
-# Use OpenAI instead of Groq (make sure OPENAI_API_KEY is set)
 export LLM_PROVIDER=openai
 python web.py
 ```
 
-### Via Code
+## Deployment (Vercel)
 
-```python
-from config import set_provider_name
-from groq_client import get_response
+This repo includes Vercel wiring:
 
-# Switch to OpenRouter
-set_provider_name('openrouter')
+- `api/index.py` imports `app` from `web.py`
+- `vercel.json` controls routing/build behavior
 
-messages = [
-    {"role": "system", "content": "You are a helpful assistant."},
-    {"role": "user", "content": "Hello!"}
-]
+Set the same provider env vars in your Vercel project settings.
 
-response = get_response(messages)
-print(response)
-```
+## Notes and caveats
 
-## Using OpenRouter
-
-### Setup OpenRouter API Key
-
-1. Sign up at [OpenRouter.ai](https://openrouter.ai)
-2. Get your API key from the dashboard
-3. Add it to your `.env` file:
-
-```bash
-LLM_PROVIDER=openrouter
-OPENROUTER_API_KEY=sk-or-v1-...
-OPENROUTER_MODEL=groq/groq-4.1-fast
-```
-
-### Available Models on OpenRouter
-
-- `groq/groq-4.1-fast` - Groq's fast model (default)
-- `openai/gpt-4-turbo` - OpenAI's GPT-4 Turbo
-- `anthropic/claude-3-sonnet` - Anthropic's Claude 3 Sonnet
-- [Browse all models](https://openrouter.ai/docs#models)
-
-### Run with OpenRouter
-
-```bash
-# Using Flask web interface
-python web.py
-
-# Using CLI
-python app.py
-```
-
-The app will use OpenRouter with your configured model and API key.
-
-## Architecture
-
-### Provider Abstraction
-
-The `llm_provider.py` module provides:
-
-- **LLMProvider**: Abstract base class defining the interface
-- **GroqProvider**: Groq API implementation
-- **OpenAIProvider**: OpenAI API implementation
-- **AnthropicProvider**: Anthropic API implementation
-- **LLMProviderFactory**: Factory for creating and managing providers
-
-### Usage Example
-
-```python
-from llm_provider import LLMProviderFactory
-
-# Get the configured provider
-provider = LLMProviderFactory.get_provider('openai')
-
-messages = [
-    {"role": "system", "content": "You are a helpful assistant."},
-    {"role": "user", "content": "What is 2+2?"}
-]
-
-response = provider.get_response(messages)
-print(response)
-```
-
-### Extending with New Providers
-
-Create a new provider by subclassing `LLMProvider`:
-
-```python
-from llm_provider import LLMProvider, LLMProviderFactory
-
-class MyProvider(LLMProvider):
-    def __init__(self, api_key=None):
-        # Initialize your provider
-        pass
-
-    def get_response(self, messages):
-        # Implement API call
-        return "response"
-
-    def get_model_name(self):
-        return "my-model"
-
-    def is_configured(self):
-        return True  # Check for API key, etc.
-
-# Register the provider
-LLMProviderFactory.register_provider('myprovider', MyProvider)
-
-# Use it
-provider = LLMProviderFactory.get_provider('myprovider')
-```
-
-## Security
-
-- **Do NOT** commit `.env` files or API keys to source control
-- See `.gitignore` for excluded files
-- Each API key should have appropriate rate limits and scopes set in the provider's dashboard
-
-## Model Comparison Workflow
-
-To compare models fairly:
-
-1. **Use the same system prompt** - All providers use `config.SYSTEM_PROMPT`
-2. **Ask identical questions** - Pose the same textile design questions
-3. **Note response characteristics**:
-   - Response latency
-   - Answer clarity and relevance
-   - Technical accuracy for textile design
-   - Conciseness and structure
-
-## Supported Providers
-
-| Provider | Models | Status |
-|----------|--------|--------|
-| **Groq** | Llama 3 8B | ✅ Supported |
-| **OpenAI** | GPT-4, GPT-4o, GPT-4o-mini | ✅ Supported |
-| **Anthropic** | Claude 3 family | ✅ Supported |
-| **OpenRouter** | Groq, OpenAI, Anthropic, and 100+ more | ✅ Supported |
+- `web.py` uses its own conversational prompt (`CHAT_SYSTEM_PROMPT`).
+- `cli.py` uses `config.SYSTEM_PROMPT` and does not currently strip `<DESIGN_OUTPUT>` tags.
+- If provider initialization fails, web and CLI fall back to `MockProvider`.
 
 ## License
 

@@ -83,7 +83,6 @@ class DobbyParameters(TypedDict):
     
     # --- Mode Selection ---
     generate_mode: Literal["Warp", "Weft", "Check"]  # Direction
-    epi_ppi: bool                                     # Link EPI to PPI
     
     # --- Check Options (conditional on generate_mode="Check") ---
     checks: CheckOptions
@@ -171,7 +170,6 @@ DOBBY_SCHEMA = {
                     "required": ["from_value", "to_value"]
                 },
                 "generate_mode": {"type": "string", "enum": ["Warp", "Weft", "Check"]},
-                "epi_ppi": {"type": "boolean"},
                 "checks": {
                     "type": "object",
                     "properties": {
@@ -247,7 +245,6 @@ TEMPLATES = {
         "ground": 0,
         "generate_range": {"from_value": 96, "to_value": 192},
         "generate_mode": "Check",
-        "epi_ppi": True,
         "checks": {
             "regular": True,
             "balance_checks": True,
@@ -276,7 +273,6 @@ TEMPLATES = {
         "ground": 0,
         "generate_range": {"from_value": 96, "to_value": 192},
         "generate_mode": "Check",
-        "epi_ppi": True,
         "checks": {
             "regular": True,
             "balance_checks": True,
@@ -305,7 +301,6 @@ TEMPLATES = {
         "ground": 0,
         "generate_range": {"from_value": 48, "to_value": 96},
         "generate_mode": "Warp",
-        "epi_ppi": True,
         "checks": {
             "regular": False,
             "balance_checks": False,
@@ -334,7 +329,6 @@ TEMPLATES = {
         "ground": 0,
         "generate_range": {"from_value": 48, "to_value": 96},
         "generate_mode": "Warp",
-        "epi_ppi": True,
         "checks": {
             "regular": False,
             "balance_checks": False,
