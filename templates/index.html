@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Textronics DesignDobby AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+<script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="app-header-left">
+      <div class="app-logo">
+        <div class="app-logo-icon">🧵</div>
+        <div>
+          <div class="app-logo-name">Textronics DesignDobby <span style="color:var(--brand-accent)">AI</span></div>
+          <div class="app-logo-subtitle">Yarn Dyed Shirting · Buyer Design Studio</div>
+        </div>
+      </div>
+    </div>
+    <div class="app-header-right">
+      <!-- Vision Model Toggle -->
+      <div class="model-toggle-group" id="visionModelToggle">
+        <span class="model-toggle-label">Vision</span>
+        <div class="model-toggle-pills">
+          <button class="model-pill active" data-model="gemini" title="Gemini 2.0 Flash">
+            <span class="model-pill-dot" style="background:#4285F4"></span>
+            Gemini
+          </button>
+          <button class="model-pill" data-model="bedrock" title="AWS Bedrock Gemma 3 12B">
+            <span class="model-pill-dot" style="background:#FF9900"></span>
+            Bedrock
+          </button>
+          <button class="model-pill" data-model="cloud-vision" title="Google Cloud Vision">
+            <span class="model-pill-dot" style="background:#34A853"></span>
+            Cloud
+          </button>
+          <button class="model-pill" data-model="mock" title="Mock (offline)">
+            <span class="model-pill-dot" style="background:#9CA3AF"></span>
+            Mock
+          </button>
+        </div>
+      </div>
+
+      <div class="provider-badge">
+        <span class="provider-dot"></span>
+        <span id="providerLabel">Connecting…</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Chat Panel -->
+  <div class="chat-panel" id="chatPanel">
+    <div class="chat-messages" id="chatMessages">
+      <div class="welcome-state" id="welcomeState">
+        <div class="welcome-icon"><i data-lucide="bot" style="width: 40px; height: 40px;"></i></div>
+        <h2>Meet Dobby</h2>
+        <p>Your AI-powered textile design advisor for yarn-dyed shirting fabrics.</p>
+        <div class="starter-chips">
+          <div class="chip" onclick="sendStarter(this)">I want a formal office shirt</div>
+          <div class="chip" onclick="sendStarter(this)">What is a Dobby weave?</div>
+          <div class="chip" onclick="sendStarter(this)">Design a casual flannel check</div>
+          <div class="chip" onclick="sendStarter(this)">Navy stripe, premium quality</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input Bar -->
+    <div class="input-bar">
+      <div id="imagePreviewContainer" class="image-preview-container">
+        <img id="imagePreview" class="image-preview" src="" />
+        <button class="clear-image-btn" onclick="clearImage()">✕</button>
+      </div>
+      
+      <input type="file" id="imageUpload" accept="image/*" style="display:none" onchange="handleImageUpload(event)" />
+      <button class="icon-btn" id="imgBtn" onclick="document.getElementById('imageUpload').click()" title="Analyze Fabric Image" aria-label="Upload image">
+        <i data-lucide="paperclip" style="width: 20px;"></i>
+      </button>
+      
+      <button class="icon-btn" id="micBtn" onclick="toggleVoice()" title="Voice Command" aria-label="Toggle voice input">
+        <i data-lucide="mic" style="width: 20px;"></i>
+      </button>
+      
+      <textarea 
+        class="input-field" 
+        id="userInput" 
+        placeholder="Describe what you're looking for, or just say hello…"
+        rows="1"
+        aria-label="Message input"
+      ></textarea>
+      
+      <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Send" aria-label="Send message">
+        <i data-lucide="send" style="width: 18px;"></i>
+      </button>
+    </div>
+
+    <div class="input-hint">Press Enter to send · Shift+Enter for new line</div>
+  </div>
+
+  <!-- Design Output Panel -->
+  <div class="design-panel" id="designPanel">
+    <div class="panel-header">
+      <h2 class="panel-title">Design Specifications</h2>
+      <button class="panel-close-btn" onclick="closePanel()" title="Close">✕</button>
+    </div>
+    <div class="panel-body" id="panelBody">
+      <div class="panel-empty">
+        <div class="empty-icon"><i data-lucide="ruler"></i></div>
+        <p>Your finalised design specifications will appear here once we've worked through your requirements together.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- JavaScript Files -->
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<script src="{{ url_for('static', filename='js/utilities.js') }}"></script>
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+<script src="{{ url_for('static', filename='js/design-panel.js') }}"></script>
+<script src="{{ url_for('static', filename='js/voice.js') }}"></script>
+<script src="{{ url_for('static', filename='js/image-analysis.js') }}"></script>
+
+</body>
+</html>
+
+  
