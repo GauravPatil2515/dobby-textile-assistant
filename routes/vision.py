@@ -52,11 +52,14 @@ def analyze_image():
     if not image_b64:
         return jsonify({'success': False, 'error': 'No image provided'}), 400
 
+    provider_name = data.get('provider')
+    
     try:
-        # Check for provider override
-        if _vision_provider_override:
+        # Check for provider in payload or fallback to override
+        active_provider = provider_name or _vision_provider_override
+        if active_provider:
             import os
-            os.environ['VISION_PROVIDER'] = _vision_provider_override
+            os.environ['VISION_PROVIDER'] = active_provider
         
         provider = get_vision_provider()
         structured = provider.analyze_image(image_b64, mime_type)

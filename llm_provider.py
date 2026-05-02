@@ -1205,8 +1205,7 @@ class GeminiVisionProvider:
     def analyze_image(self, image_b64: str, mime_type: str = "image/jpeg") -> Dict:
         """Analyze image using Gemini Vision API."""
         if not self.client:
-            print("⚠ Gemini client not available — falling back to mock")
-            return MockVisionProvider().analyze_image(image_b64, mime_type)
+            raise ValueError("Gemini client not initialized (missing API key or google-genai package)")
 
         try:
             # Remove data URI prefix if present
@@ -1289,12 +1288,10 @@ class GeminiVisionProvider:
 
                 return result
             except (json.JSONDecodeError, ValueError) as e:
-                print(f"⚠ Gemini response error: {e} — falling back to mock")
-                return MockVisionProvider().analyze_image(image_b64, mime_type)
+                raise ValueError(f"Gemini response parsing error: {e}")
 
         except Exception as e:
-            print(f"⚠ Gemini API error: {str(e)[:200]}... falling back to mock")
-            return MockVisionProvider().analyze_image(image_b64, mime_type)
+            raise Exception(f"Gemini API error: {str(e)[:200]}")
 
     def _complete_schema(self, result: dict) -> dict:
         """Ensure all required schema fields are present with sensible defaults."""
@@ -1366,8 +1363,9 @@ class GeminiVisionProvider:
 def get_vision_provider():
     """Factory function to get appropriate vision provider."""
     from config import VISION_PROVIDER, GEMINI_API_KEY, CLOUD_VISION_API_KEY
+    import os
 
-    provider_name = VISION_PROVIDER.lower().strip()
+    provider_name = os.getenv("VISION_PROVIDER", VISION_PROVIDER).lower().strip()
 
     if provider_name == "gemini":
         if not GEMINI_API_KEY:
@@ -1378,15 +1376,20 @@ def get_vision_provider():
         return GeminiVisionProvider(GEMINI_API_KEY)
     elif provider_name == "cloud-vision":
         if not CLOUD_VISION_API_KEY:
-            print("⚠ Cloud Vision API key not set — falling back to mock")
+            print("[WARNING] Cloud Vision API key not set — falling back to mock")
             return MockVisionProvider()
         try:
             from google.cloud import vision as cloud_vision
             client = vision.ImageAnnotatorClient()
             return CloudVisionProvider(CLOUD_VISION_API_KEY)
         except ImportError:
-            print("⚠ google-cloud-vision not installed — falling back to mock")
+            print("[WARNING] google-cloud-vision not installed — falling back to mock")
             return MockVisionProvider()
+    elif provider_name == "bedrock":
+        from config import BEDROCK_API_KEY
+        if not BEDROCK_API_KEY:
+            raise ValueError("Bedrock vision provider selected but BEDROCK_API_KEY not set.")
+        return BedrockVisionProvider(BEDROCK_API_KEY)
     else:
         # Default to mock provider
         return MockVisionProvider()
@@ -1405,26 +1408,84 @@ class BedrockVisionProvider:
             self.client = boto3.client(
                 'bedrock-runtime',
                 aws_access_key_id=api_key,
+                aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+                aws_session_token=os.getenv('AWS_SESSION_TOKEN'),
                 region_name=os.getenv('AWS_REGION', 'us-east-1')
             )
         except ImportError:
-            print("⚠ boto3 not installed for Bedrock Vision")
+            print("[WARNING] boto3 not installed for Bedrock Vision")
         except Exception as e:
-            print(f"⚠ Bedrock Vision client error: {e}")
+            print(f"[WARNING] Bedrock Vision client error: {e}")
 
     def analyze_image(self, image_b64: str, mime_type: str = 'image/jpeg') -> dict:
         """Analyze image using Bedrock Gemma 3 12B."""
         if not self.client:
-            return MockVisionProvider().analyze_image(image_b64, mime_type)
+            raise ValueError("Bedrock client not initialized (missing boto3 or AWS credentials)")
 
         try:
-            # For now, fallback to mock since Bedrock vision may not be available
-            print("⚠ Bedrock vision not fully implemented, using mock")
-            return MockVisionProvider().analyze_image(image_b64, mime_type)
+            import base64
+            import json
+            
+            # Remove data URI prefix if present
+            if image_b64.startswith("data:"):
+                image_b64 = image_b64.split(",", 1)[1]
+                
+            image_bytes = base64.b64decode(image_b64)
+            img_format = "png" if "png" in mime_type else "jpeg"
+            
+            # We must pass the actual Bedrock model ID here.
+            # "bedrock-gemma-3-12b" is not a standard AWS identifier.
+            # Using standard Claude 3 Haiku for vision as a default fallback if it fails.
+            model_id = "anthropic.claude-3-haiku-20240307-v1:0" if self.model_name == "bedrock-gemma-3-12b" else self.model_name
+            
+            response = self.client.converse(
+                modelId=model_id,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "image": {
+                                    "format": img_format,
+                                    "source": {"bytes": image_bytes}
+                                }
+                            },
+                            {
+                                "text": VISION_PROMPT
+                            }
+                        ]
+                    }
+                ],
+                inferenceConfig={
+                    "maxTokens": 1024,
+                    "temperature": 0.05,
+                    "topP": 0.8
+                }
+            )
+            
+            result_text = response['output']['message']['content'][0]['text'].strip()
+            
+            # Clean markdown code blocks
+            if result_text.startswith("```json"):
+                result_text = result_text[7:]
+            if result_text.startswith("```"):
+                result_text = result_text[3:]
+            if result_text.endswith("```"):
+                result_text = result_text[:-3]
+                
+            result = json.loads(result_text)
+            
+            # Ensure basic required keys
+            result.setdefault('colors', [{"name": "Grey", "type": "base", "percentage": 100}])
+            result.setdefault('design', {"designSize": "Medium", "designStyle": "Regular", "weave": "Plain", "designSizeRangeCm": {"min": 2.0, "max": 5.0}})
+            result.setdefault('stripe', {"stripeSizeRangeMm": {"min": 0.2, "max": 4.0}, "stripeMultiplyRange": {"min": 1, "max": 3}, "isSymmetry": True})
+            result.setdefault('visual', {"contrastLevel": "Medium"})
+            result.setdefault('market', {"occasion": "Casual"})
+            
+            return result
 
         except Exception as e:
-            print(f"⚠ Bedrock Vision error: {e}")
-            return MockVisionProvider().analyze_image(image_b64, mime_type)
+            raise Exception(f"Bedrock Vision error: {e}")
 
     def get_model_name(self) -> str:
         return self.model_name
@@ -1443,12 +1504,12 @@ class CloudVisionProvider:
             self.client = vision.ImageAnnotatorClient()
         except ImportError:
             self.client = None
-            print("⚠ google-cloud-vision package not installed")
+            print("[WARNING] google-cloud-vision package not installed")
 
     def analyze_image(self, image_b64: str, mime_type: str = 'image/jpeg') -> dict:
         """Analyze image using Google Cloud Vision API."""
         if not self.client:
-            return MockVisionProvider().analyze_image(image_b64, mime_type)
+            raise ValueError("Cloud Vision client not initialized (missing google-cloud-vision)")
 
         try:
             # Extract base64 data if it's a data URL
@@ -1499,8 +1560,7 @@ class CloudVisionProvider:
                 "market": {"occasion": "Casual"}
             }
         except Exception as e:
-            print(f"⚠ Cloud Vision error: {e}")
-            return MockVisionProvider().analyze_image(image_b64, mime_type)
+            raise Exception(f"Cloud Vision error: {e}")
 
     def _rgb_to_name(self, r: int, g: int, b: int) -> str:
         """Convert RGB to closest textile color name."""

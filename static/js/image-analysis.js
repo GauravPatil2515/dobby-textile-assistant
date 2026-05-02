@@ -58,15 +58,16 @@ async function analyzeImage(file) {
   addBotTyping();
 
   try {
-    // Call the /analyze-image endpoint with base64 + mimeType
-    const response = await fetch('/analyze-image', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        image: lastImageBase64,
-        mimeType: file.type
-      })
-    });
+      // Call the /analyze-image endpoint with base64 + mimeType + provider
+      const response = await fetch('/analyze-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image: lastImageBase64,
+          mimeType: file.type,
+          provider: typeof activeVisionModel !== 'undefined' ? activeVisionModel : 'gemini'
+        })
+      });
 
     removeTyping();
 
