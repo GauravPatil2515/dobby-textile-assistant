@@ -208,6 +208,10 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - GitHub: [@GauravPatil2515](https://github.com/GauravPatil2515)
 - Email: gaurav@textile.ai
 
+**Yuvraj karunakaran**
+- GitHub:yuvrajkaiml(https://github.com/yuvrajkaiml)
+- Email: yuvraj@textile.ai
+
 ## 🙏 Acknowledgments
 
 - Groq for high-speed LLM inference
