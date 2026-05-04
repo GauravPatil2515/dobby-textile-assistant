@@ -1374,17 +1374,13 @@ def get_vision_provider():
                 "Set GEMINI_API_KEY environment variable or use VISION_PROVIDER=mock"
             )
         return GeminiVisionProvider(GEMINI_API_KEY)
-    elif provider_name == "cloud-vision":
-        if not CLOUD_VISION_API_KEY:
-            print("[WARNING] Cloud Vision API key not set — falling back to mock")
-            return MockVisionProvider()
-        try:
-            from google.cloud import vision as cloud_vision
-            client = vision.ImageAnnotatorClient()
-            return CloudVisionProvider(CLOUD_VISION_API_KEY)
-        except ImportError:
-            print("[WARNING] google-cloud-vision not installed — falling back to mock")
-            return MockVisionProvider()
+    elif provider_name == "openrouter":
+        openrouter_key = os.getenv("OPENROUTER_API_KEY", "")
+        if not openrouter_key:
+            raise ValueError(
+                "OpenRouter vision provider selected but OPENROUTER_API_KEY not set in environment. "
+            )
+        return OpenRouterVisionProvider(openrouter_key)
     elif provider_name == "bedrock":
         from config import BEDROCK_API_KEY
         if not BEDROCK_API_KEY:
@@ -1494,107 +1490,83 @@ class BedrockVisionProvider:
         return bool(self.api_key and self.client)
 
 
-class CloudVisionProvider:
-    """Google Cloud Vision API provider for image analysis."""
+class OpenRouterVisionProvider:
+    """OpenRouter provider for image analysis using vision-capable models."""
 
     def __init__(self, api_key: str):
         self.api_key = api_key
+        # Default to a highly capable vision model on OpenRouter
+        self.model_name = "google/gemini-2.5-flash"
+        self.client = None
         try:
-            from google.cloud import vision
-            self.client = vision.ImageAnnotatorClient()
+            from openai import OpenAI
+            self.client = OpenAI(
+                base_url="https://openrouter.ai/api/v1",
+                api_key=api_key,
+            )
         except ImportError:
-            self.client = None
-            print("[WARNING] google-cloud-vision package not installed")
+            print("[WARNING] openai package not installed for OpenRouter Vision")
 
     def analyze_image(self, image_b64: str, mime_type: str = 'image/jpeg') -> dict:
-        """Analyze image using Google Cloud Vision API."""
+        """Analyze image using OpenRouter API."""
         if not self.client:
-            raise ValueError("Cloud Vision client not initialized (missing google-cloud-vision)")
+            raise ValueError("OpenRouter client not initialized (missing openai package)")
+
+        # Ensure correct data URL format
+        if not image_b64.startswith('data:'):
+            image_b64 = f"data:{mime_type};base64,{image_b64}"
 
         try:
-            # Extract base64 data if it's a data URL
-            if ',' in image_b64:
-                image_b64 = image_b64.split(',', 1)[1]
+            response = self.client.chat.completions.create(
+                model=self.model_name,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": VISION_PROMPT
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": image_b64
+                                }
+                            }
+                        ]
+                    }
+                ],
+                max_tokens=1024,
+                temperature=0.05
+            )
 
-            import base64
-            image_content = base64.b64decode(image_b64)
+            result_text = response.choices[0].message.content.strip()
 
-            # Create image object
-            from google.cloud import vision
-            image = vision.Image(content=image_content)
+            # Clean markdown code blocks
+            if result_text.startswith("```json"):
+                result_text = result_text[7:]
+            if result_text.startswith("```"):
+                result_text = result_text[3:]
+            if result_text.endswith("```"):
+                result_text = result_text[:-3]
 
-            # Detect colors
-            image_properties = self.client.image_properties(image=image)
-            colors = []
-            if image_properties.annotation.colors:
-                for i, color_info in enumerate(image_properties.annotation.colors[:6]):
-                    color = color_info.color
-                    rgb_name = self._rgb_to_name(color.red, color.green, color.blue)
-                    colors.append({
-                        "name": rgb_name,
-                        "type": "base" if i == 0 else "contrast",
-                        "percentage": int(color_info.score * 100)
-                    })
+            import json
+            result = json.loads(result_text)
 
-            # Normalize percentages
-            if colors:
-                total = sum(c['percentage'] for c in colors)
-                if total > 0:
-                    for c in colors:
-                        c['percentage'] = int(c['percentage'] / total * 100)
+            # Ensure basic required keys
+            result.setdefault('colors', [{"name": "Grey", "type": "base", "percentage": 100}])
+            result.setdefault('design', {"designSize": "Medium", "designStyle": "Regular", "weave": "Plain", "designSizeRangeCm": {"min": 2.0, "max": 5.0}})
+            result.setdefault('stripe', {"stripeSizeRangeMm": {"min": 0.2, "max": 4.0}, "stripeMultiplyRange": {"min": 1, "max": 3}, "isSymmetry": True})
+            result.setdefault('visual', {"contrastLevel": "Medium"})
+            result.setdefault('market', {"occasion": "Casual"})
 
-            return {
-                "colors": colors or [{"name": "Grey", "type": "base", "percentage": 100}],
-                "design": {
-                    "designSize": "Medium",
-                    "designSizeRangeCm": {"min": 2.0, "max": 5.0},
-                    "designStyle": "Regular",
-                    "weave": "Plain"
-                },
-                "stripe": {
-                    "stripeSizeRangeMm": {"min": 0.2, "max": 4.0},
-                    "stripeMultiplyRange": {"min": 1, "max": 3},
-                    "isSymmetry": True
-                },
-                "visual": {"contrastLevel": "Medium"},
-                "market": {"occasion": "Casual"}
-            }
+            return result
+
         except Exception as e:
-            raise Exception(f"Cloud Vision error: {e}")
-
-    def _rgb_to_name(self, r: int, g: int, b: int) -> str:
-        """Convert RGB to closest textile color name."""
-        color_map = {
-            (0, 0, 0): "Black", (255, 255, 255): "White",
-            (139, 0, 0): "Dark Red", (178, 34, 34): "Firebrick",
-            (205, 92, 92): "Indian Red", (220, 20, 60): "Crimson",
-            (255, 0, 0): "Red", (255, 127, 80): "Coral",
-            (255, 165, 0): "Orange", (255, 215, 0): "Gold",
-            (255, 255, 0): "Yellow", (173, 255, 47): "Green Yellow",
-            (0, 255, 0): "Lime", (0, 255, 127): "Spring Green",
-            (0, 128, 0): "Green", (0, 100, 0): "Dark Green",
-            (0, 255, 255): "Cyan", (0, 206, 209): "Dark Turquoise",
-            (0, 191, 255): "Deep Sky Blue", (30, 144, 255): "Dodger Blue",
-            (0, 0, 255): "Blue", (0, 0, 139): "Dark Blue",
-            (75, 0, 130): "Indigo", (128, 0, 128): "Purple",
-            (255, 0, 255): "Magenta", (255, 192, 203): "Pink",
-            (188, 143, 143): "Rosy Brown", (205, 133, 63): "Peru",
-            (210, 180, 140): "Tan", (139, 69, 19): "Saddle Brown",
-            (160, 82, 45): "Sienna", (128, 128, 0): "Olive",
-            (128, 128, 128): "Grey", (169, 169, 169): "Dark Grey",
-        }
-
-        min_dist = float('inf')
-        closest = "Grey"
-        for (cr, cg, cb), name in color_map.items():
-            dist = ((r - cr) ** 2 + (g - cg) ** 2 + (b - cb) ** 2) ** 0.5
-            if dist < min_dist:
-                min_dist = dist
-                closest = name
-        return closest
+            raise Exception(f"OpenRouter Vision error: {e}")
 
     def get_model_name(self) -> str:
-        return "cloud-vision"
+        return self.model_name
 
     def is_configured(self) -> bool:
-        return bool(self.api_key)
+        return bool(self.api_key and self.client)

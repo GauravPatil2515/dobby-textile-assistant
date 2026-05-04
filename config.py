@@ -14,7 +14,7 @@ VISION_PROVIDER = os.getenv("VISION_PROVIDER", "mock")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 CLOUD_VISION_API_KEY = os.getenv("CLOUD_VISION_API_KEY", "")
 BEDROCK_API_KEY = os.getenv("BEDROCK_API_KEY", "")
-
+OPENROUTER_API_KEY =os.getenv("OPENROUTER_API_KEY", "")
 # ============================================================================
 # PRODUCTION SYSTEM PROMPT
 # ============================================================================

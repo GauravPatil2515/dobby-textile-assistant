@@ -70,7 +70,7 @@ async function loadProvider() {
 }
 
 // ── Vision Model Toggle ────────────────────────────────
-let activeVisionModel = 'gemini';
+let activeVisionModel = 'openrouter';
 
 function initModelToggle() {
   const pills = document.querySelectorAll('.model-pill');

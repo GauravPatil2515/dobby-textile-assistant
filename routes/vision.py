@@ -28,7 +28,7 @@ def set_vision_provider():
     data = request.get_json() or {}
     provider = data.get('provider', 'mock')
 
-    valid = {'gemini', 'bedrock', 'cloud-vision', 'mock'}
+    valid = {'gemini', 'bedrock', 'openrouter', 'mock'}
     if provider not in valid:
         return jsonify({'error': f'Invalid provider. Use: {valid}'}), 400
 
