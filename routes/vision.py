@@ -10,7 +10,7 @@ Returns:
 - or { success: False, error: 'message' }
 """
 
-from flask import Blueprint, request, jsonify, session
+from flask import Blueprint, request, jsonify
 from llm_provider import get_vision_provider
 
 vision_bp = Blueprint('vision', __name__)
@@ -45,30 +45,64 @@ def analyze_image():
     Returns:
         JSON response as described in module docstring.
     """
+    import os
+    import base64
+    
     data = request.get_json() or {}
     image_b64 = data.get('image', '')
     mime_type = data.get('mimeType', 'image/jpeg')
 
+    # Validate image input
     if not image_b64:
         return jsonify({'success': False, 'error': 'No image provided'}), 400
+    
+    # Handle data URL format (e.g., data:image/jpeg;base64,/9j/...)
+    if image_b64.startswith('data:'):
+        try:
+            image_b64 = image_b64.split(',', 1)[1]
+        except IndexError:
+            return jsonify({'success': False, 'error': 'Invalid data URL format'}), 400
+    
+    # Validate base64 format
+    try:
+        decoded = base64.b64decode(image_b64, validate=True)
+        # Check file size (max 25MB)
+        if len(decoded) > 25 * 1024 * 1024:
+            return jsonify({'success': False, 'error': 'Image too large (max 25MB)'}), 400
+        if len(decoded) < 100:
+            return jsonify({'success': False, 'error': 'Image too small or invalid'}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Invalid base64 image: {str(e)}'}), 400
 
     provider_name = data.get('provider')
     
     try:
-        # Check for provider in payload or fallback to override
+        # Set vision provider override in environment
+        # This is checked by get_vision_provider() at runtime
         active_provider = provider_name or _vision_provider_override
         if active_provider:
-            import os
             os.environ['VISION_PROVIDER'] = active_provider
         
         provider = get_vision_provider()
         structured = provider.analyze_image(image_b64, mime_type)
+        
+        if not structured:
+            return jsonify({
+                'success': False,
+                'error': 'No design data extracted from image analysis'
+            }), 400
 
         return jsonify({
             'success': True,
             'structured': structured,
             'provider': provider.get_model_name()
         })
+    except ValueError as e:
+        # Configuration error (missing API key, etc.)
+        print(f"[ERROR] Vision provider config error: {e}")
+        return jsonify({'success': False, 'error': f'Provider error: {str(e)}'}), 400
     except Exception as e:
         print(f"[ERROR] Vision analysis failed: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': f'Analysis failed: {str(e)}'}), 500

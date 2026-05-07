@@ -148,9 +148,13 @@ function addBotMessage(text) {
  * @param {string} value - The option value
  */
 function pickOption(btn, value) {
+  // Prevent double-click and race conditions
+  if (isLoading) return;
+  
   // Disable all chips in this group
   const wrap = btn.closest('.options-row');
   if (wrap) wrap.querySelectorAll('.option-btn').forEach(c => c.disabled = true);
+  
   // Send the chosen value as a user message
   document.getElementById('userInput').value = value;
   sendMessage();
